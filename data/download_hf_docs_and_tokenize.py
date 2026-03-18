@@ -314,6 +314,7 @@ def export_shards(
     num_val_docs: int,
     shard_size: int,
     docs_total: int,
+    max_docs: int | None = None,
 ) -> dict[str, int]:
     output_dir.mkdir(parents=True, exist_ok=True)
     for pattern in ("fineweb_train_*.bin", "fineweb_val_*.bin"):
@@ -355,6 +356,9 @@ def export_shards(
     for texts in batched_docs_jsonl(docs_jsonl, batch_size):
         encoded_docs = batch_encode(texts) if callable(batch_encode) else [tok["encode"](text) for text in texts]
         for text, encoded in zip(texts, encoded_docs, strict=True):
+            if max_docs is not None and stats["docs_total"] >= max_docs:
+                flush()
+                return stats
             del text
             split_for_doc = "val" if stats["docs_total"] < num_val_docs else "train"
             if split_for_doc != split:
@@ -388,9 +392,11 @@ def export_shards(
 
         if stats["docs_total"] and stats["docs_total"] % 100_000 == 0:
             print(f"{output_dir.name}: {stats['docs_total']}/{docs_total} docs", flush=True)
+        if max_docs is not None and stats["docs_total"] >= max_docs:
+            break
 
     flush()
-    if stats["docs_total"] != docs_total:
+    if max_docs is None and stats["docs_total"] != docs_total:
         raise ValueError(f"expected {docs_total} docs, exported {stats['docs_total']}")
     return stats
 
@@ -509,6 +515,12 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="VOCAB=MODEL",
         help="Reuse an existing SentencePiece model for the given vocab size instead of retraining it.",
     )
+    parser.add_argument(
+        "--proxy-max-docs",
+        type=int,
+        default=None,
+        help="Research only: stop after this many docs (val prefix unchanged). Enables fast SP2048+ proxies without full 15M-doc export.",
+    )
     return parser
 
 
@@ -599,6 +611,7 @@ def main() -> None:
             num_val_docs=num_val_docs,
             shard_size=int(args.chunk_tokens),
             docs_total=docs_total,
+            max_docs=args.proxy_max_docs,
         )
         manifest["tokenizers"].append(tok["manifest"])
         manifest["datasets"].append(

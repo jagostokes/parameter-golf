@@ -1,0 +1,11 @@
+{
+  "tokenizer_specs": [
+    {
+      "name": "sp_bpe_2048",
+      "dataset_suffix": "sp2048",
+      "vocab_size": 2048,
+      "builder": "demo_tokenizer_builders:build_sentencepiece_tokenizer",
+      "tokenizer_train_docs": 5000000
+    }
+  ]
+}
