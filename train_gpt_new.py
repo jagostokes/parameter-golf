@@ -48,7 +48,8 @@ class Hyperparameters:
     val_batch_size = int(os.environ.get("VAL_BATCH_SIZE", 524_288))
     val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", 0))
     train_log_every = int(os.environ.get("TRAIN_LOG_EVERY", 200))
-    iterations = int(os.environ.get("ITERATIONS", 20_000))
+    # ESTIMATE_8H100_STEPS=10000 for 1-GPU runs to match ~8× H100 10-min step count; else ITERATIONS.
+    iterations = int(os.environ.get("ESTIMATE_8H100_STEPS", os.environ.get("ITERATIONS", "20000")))
     warmup_steps = int(os.environ.get("WARMUP_STEPS", 200))
     train_batch_tokens = int(os.environ.get("TRAIN_BATCH_TOKENS", 524_288))
     train_seq_len = int(os.environ.get("TRAIN_SEQ_LEN", 1024))
@@ -727,7 +728,7 @@ def main() -> None:
             print(msg, file=f)
 
     log0(code, console=False)
-    log0(f"train_gpt_new flex_attention={_HAS_FLEX} qat={args.qat_enabled} num_recurse={args.num_recurse} compile={bool(args.compile_mode)}")
+    log0(f"train_gpt_new flex_attention={_HAS_FLEX} qat={args.qat_enabled} num_recurse={args.num_recurse} compile={bool(args.compile_mode)} iterations={args.iterations}")
 
     random.seed(args.seed)
     np.random.seed(args.seed)

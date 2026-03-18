@@ -30,6 +30,20 @@ torchrun --standalone --nproc_per_node=1 train_gpt_new.py
 
 Default `NUM_RECURSE=10` keeps steps fast. Target: `val_bpb < 1.2244` after full training (200 iters is only a smoke run).
 
+### Estimate 8× H100 10‑min run on 1 GPU
+
+To approximate the **step count** (and thus val_bpb) you’d get on 8× H100 in 10 minutes, run the same number of steps on Colab/1 GPU. Baseline did **13,780** steps in 10 min; this model (10 recurrences) is in the same ballpark, so use **10,000 steps** as a round estimate.
+
+Set **`ESTIMATE_8H100_STEPS=10000`** and **`MAX_WALLCLOCK_SECONDS=0`** (no wall cap). At ~1 s/step that’s **~2.8 h** on 1 GPU. The final val_bpb is your estimate for a 10‑min 8× H100 run.
+
+```bash
+ESTIMATE_8H100_STEPS=10000 MAX_WALLCLOCK_SECONDS=0 \
+DATA_PATH=./data/datasets/fineweb10B_sp1024 \
+TOKENIZER_PATH=./data/tokenizers/fineweb_1024_bpe.model \
+VOCAB_SIZE=1024 VAL_LOSS_EVERY=500 TRAIN_BATCH_TOKENS=65536 \
+torchrun --standalone --nproc_per_node=1 train_gpt_new.py
+```
+
 ## Ablation table (fill in after experiments)
 
 | Variant | val_bpb | Δ vs full | Notes |
@@ -89,6 +103,8 @@ If `assert compressed_bytes < 16_000_000` fails with `VOCAB_SIZE=8192`, reduce t
 | `DATA_PATH` | Shard directory (must match tokenizer) |
 | `TOKENIZER_PATH` | SentencePiece `.model` |
 | `VOCAB_SIZE` | Must match SP vocab |
+| `ITERATIONS` | Max training steps (default 20000). Overridden by `ESTIMATE_8H100_STEPS` if set. |
+| `ESTIMATE_8H100_STEPS` | If set (e.g. 10000), run this many steps to approximate 8× H100 10‑min run on 1 GPU. |
 | `NUM_RECURSE` | Recurrence depth (default 10; use 20 for full runs) |
 | `MLA_RANK` | KV bottleneck rank (default 64) |
 | `WINDOW_SHORT` / `WINDOW_LONG` | Alternating Flex windows per step |
