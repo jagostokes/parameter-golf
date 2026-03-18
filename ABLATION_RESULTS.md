@@ -34,7 +34,7 @@ Default `NUM_RECURSE=10` keeps steps fast. Target: `val_bpb < 1.2244` after full
 
 To approximate the **step count** (and thus val_bpb) you’d get on 8× H100 in 10 minutes, run the same number of steps on Colab/1 GPU. Baseline did **13,780** steps in 10 min; this model (10 recurrences) is in the same ballpark, so use **10,000 steps** as a round estimate.
 
-Set **`ESTIMATE_8H100_STEPS=10000`** and **`MAX_WALLCLOCK_SECONDS=0`** (no wall cap). At ~1 s/step that’s **~2.8 h** on 1 GPU. The final val_bpb is your estimate for a 10‑min 8× H100 run.
+Set **`ESTIMATE_8H100_STEPS=10000`** and **`MAX_WALLCLOCK_SECONDS=0`** (no wall cap). At ~1 s/step that’s **~2.8 h** on 1 GPU. When `ESTIMATE_8H100_STEPS` is set, **validation runs every 500 steps** by default so you can track val_bpb (leaderboard target &lt; 1.2244). Override with `VAL_LOSS_EVERY=0` to validate only at the end.
 
 ```bash
 ESTIMATE_8H100_STEPS=10000 MAX_WALLCLOCK_SECONDS=0 \
@@ -105,6 +105,7 @@ If `assert compressed_bytes < 16_000_000` fails with `VOCAB_SIZE=8192`, reduce t
 | `VOCAB_SIZE` | Must match SP vocab |
 | `ITERATIONS` | Max training steps (default 20000). Overridden by `ESTIMATE_8H100_STEPS` if set. |
 | `ESTIMATE_8H100_STEPS` | If set (e.g. 10000), run this many steps to approximate 8× H100 10‑min run on 1 GPU. |
+| `VAL_LOSS_EVERY` | Validate every N steps (0 = only at end). Defaults to 500 when `ESTIMATE_8H100_STEPS` is set. |
 | `NUM_RECURSE` | Recurrence depth (default 10; use 20 for full runs) |
 | `MLA_RANK` | KV bottleneck rank (default 64) |
 | `WINDOW_SHORT` / `WINDOW_LONG` | Alternating Flex windows per step |

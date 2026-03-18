@@ -46,7 +46,9 @@ class Hyperparameters:
     seed = int(os.environ.get("SEED", 1337))
 
     val_batch_size = int(os.environ.get("VAL_BATCH_SIZE", 524_288))
-    val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", 0))
+    # When estimating 8× H100 run, default to validating every 500 steps so you can track val_bpb.
+    _default_val_every = "500" if os.environ.get("ESTIMATE_8H100_STEPS") else "0"
+    val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", _default_val_every))
     train_log_every = int(os.environ.get("TRAIN_LOG_EVERY", 200))
     # ESTIMATE_8H100_STEPS=10000 for 1-GPU runs to match ~8× H100 10-min step count; else ITERATIONS.
     iterations = int(os.environ.get("ESTIMATE_8H100_STEPS", os.environ.get("ITERATIONS", "20000")))
