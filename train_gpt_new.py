@@ -1,17 +1,16 @@
 """
-Parameter Golf experimental trainer: recurrent MLA transformer + Muon + QAT + large-vocab BPE.
-See ABLATION_RESULTS.md for ablation protocol. Env interface matches train_gpt.py (RUN_ID, DATA_PATH, etc.).
+Parameter Golf trainer: depth-recurrent MLA block + Muon + QAT.
+Single shared block applied N times; low-rank KV (MLA); optional FlexAttention.
+Deps: torch, numpy, sentencepiece. Set COMPILE_MODE=max-autotune to enable torch.compile (off by default).
+Env: RUN_ID, DATA_PATH, TOKENIZER_PATH, VOCAB_SIZE, ITERATIONS, MAX_WALLCLOCK_SECONDS, etc.
 """
 from __future__ import annotations
 
-import copy
 import glob
 import io
 import math
 import os
 import random
-import subprocess
-import sys
 import time
 import uuid
 import zlib
@@ -72,7 +71,7 @@ class Hyperparameters:
     rope_base = float(os.environ.get("ROPE_BASE", 10000.0))
     use_act_halting = bool(int(os.environ.get("USE_ACT_HALTING", "0")))
     qat_enabled = bool(int(os.environ.get("QAT", "1")))
-    compile_mode = os.environ.get("COMPILE_MODE", "max-autotune")
+    compile_mode = os.environ.get("COMPILE_MODE", "")
 
     # Optimizer
     embed_lr = float(os.environ.get("EMBED_LR", 0.02))
@@ -595,8 +594,8 @@ class RecurrentGPT(nn.Module):
         if e.size(1) > 1:
             g = torch.sigmoid(self.smear_gate(e[:, 1:, :12]).squeeze(-1))
             lam = torch.sigmoid(self.smear_lambda)
-            e = e.clone()
-            e[:, 1:, :] = e[:, 1:, :] + (g.unsqueeze(-1) * lam) * e[:, :-1, :]
+            smear = (g.unsqueeze(-1) * lam) * e[:, :-1, :]
+            e = e + F.pad(smear, (0, 0, 1, 0))
         return F.rms_norm(e, (e.size(-1),))
 
     def forward(self, input_ids: Tensor, target_ids: Tensor) -> Tensor:
@@ -728,7 +727,7 @@ def main() -> None:
             print(msg, file=f)
 
     log0(code, console=False)
-    log0(f"train_gpt_new flex_attention={_HAS_FLEX} qat={args.qat_enabled} num_recurse={args.num_recurse}")
+    log0(f"train_gpt_new flex_attention={_HAS_FLEX} qat={args.qat_enabled} num_recurse={args.num_recurse} compile={bool(args.compile_mode)}")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -749,9 +748,6 @@ def main() -> None:
     base_bytes_lut, has_leading_space_lut, is_boundary_token_lut = build_sentencepiece_luts(sp, args.vocab_size, device)
 
     base_model = RecurrentGPT(args).to(device).bfloat16()
-    for p in base_model.parameters():
-        if p.ndim < 2 or any(x in str(id(p)) for x in []):
-            pass
     with torch.no_grad():
         base_model.tok_emb.weight.data = base_model.tok_emb.weight.float()
         base_model.step_embed.data = base_model.step_embed.float()
@@ -760,10 +756,13 @@ def main() -> None:
             if isinstance(m, RMSNorm):
                 m.weight.data = m.weight.float()
 
-    try:
-        compiled = torch.compile(base_model, dynamic=False, mode=args.compile_mode)
-    except Exception as e:
-        log0(f"compile fallback: {e}")
+    if args.compile_mode:
+        try:
+            compiled = torch.compile(base_model, dynamic=False, mode=args.compile_mode)
+        except Exception as e:
+            log0(f"compile fallback: {e}")
+            compiled = base_model
+    else:
         compiled = base_model
     model: nn.Module = DDP(compiled, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled
 
@@ -830,6 +829,11 @@ def main() -> None:
     step = 0
 
     while True:
+        elapsed_ms = training_time_ms + 1000.0 * (time.perf_counter() - t0)
+        if max_ms and elapsed_ms >= max_ms and stop_after is None:
+            stop_after = step
+            if master:
+                log0(f"stopping_early: wallclock_cap elapsed_ms:{elapsed_ms:.0f} step:{step}")
         last = step >= args.iterations or (stop_after is not None and step >= stop_after)
         do_val = last or (args.val_loss_every > 0 and step > 0 and step % args.val_loss_every == 0)
         if do_val:
