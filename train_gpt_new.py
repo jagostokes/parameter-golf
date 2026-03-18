@@ -60,7 +60,7 @@ class Hyperparameters:
     num_heads = int(os.environ.get("NUM_HEADS", 8))
     num_kv_heads = int(os.environ.get("NUM_KV_HEADS", 4))
     mlp_mult = int(os.environ.get("MLP_MULT", 2))
-    num_recurse = int(os.environ.get("NUM_RECURSE", 20))
+    num_recurse = int(os.environ.get("NUM_RECURSE", 10))
     mla_rank = int(os.environ.get("MLA_RANK", 64))
     low_rank_r = int(os.environ.get("LOW_RANK_R", min(64, int(os.environ.get("MODEL_DIM", 512)))))
     window_short = int(os.environ.get("WINDOW_SHORT", 512))
@@ -738,6 +738,12 @@ def main() -> None:
 
     if not args.tokenizer_path.endswith(".model"):
         raise ValueError("TOKENIZER_PATH must be .model")
+    if not Path(args.tokenizer_path).is_file():
+        raise FileNotFoundError(
+            f"Tokenizer not found: {args.tokenizer_path}. "
+            "Download data+tokenizer: python data/cached_challenge_fineweb.py --variant sp8192 --train-shards N "
+            "(or sp4096 / sp1024 if sp8192 not on hub)."
+        )
     sp = spm.SentencePieceProcessor(model_file=args.tokenizer_path)
     vs = int(sp.vocab_size())
     if vs != args.vocab_size:
