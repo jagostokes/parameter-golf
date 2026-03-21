@@ -1,0 +1,4 @@
+train_gpt_new flex_attention=True qat=True num_recurse=10 compile=False iterations=10000
+step:500 val_loss:3.693954 val_bpb:2.187767 bpb_formula_check:2.187767 tokens_per_byte:0.4105 train_time_ms:507480
+step:1000 val_loss:3.407026 val_bpb:2.017833 bpb_formula_check:2.017833 tokens_per_byte:0.4105 train_time_ms:1020923
+(Replace this file with the full train log from your run, e.g. logs/<RUN_ID>.txt)

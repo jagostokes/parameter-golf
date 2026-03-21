@@ -1,0 +1,13 @@
+{
+  "author": "Replace with your name",
+  "github_id": "jagostokes",
+  "name": "Recurrent MLA 10×",
+  "blurb": "Non-record: depth-recurrent MLA block (10×), Muon + QAT, SP-1024; 1-GPU estimate run. Replace with final val_bpb after 10k-step or 8× H100 run.",
+  "date": "2026-03-18T00:00:00Z",
+  "track": "non-record-16mb",
+  "val_loss": 3.407,
+  "val_bpb": 2.018,
+  "step_stop": 1000,
+  "bytes_total": 1835442,
+  "bytes_code": 39616
+}
