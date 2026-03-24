@@ -54,11 +54,61 @@ def _f(name: str, default: float) -> float:
     return float(os.environ.get(name, str(default)))
 
 
+def _repo_root() -> Path:
+    """parameter-golf root (directory containing `data/`), independent of cwd."""
+    r = os.environ.get("REPO_ROOT", "").strip()
+    if r:
+        return Path(r).expanduser().resolve()
+    here = Path(__file__).resolve()
+    for p in [here, *here.parents]:
+        if (p / "data").is_dir():
+            return p
+    return here.parents[3]
+
+
+_REPO_ROOT = _repo_root()
+_DEFAULT_DATA_DIR = _REPO_ROOT / "data" / "datasets" / "fineweb10B_sp1024"
+_DEFAULT_TOKENIZER = _REPO_ROOT / "data" / "tokenizers" / "fineweb_1024_bpe.model"
+
+
+def _data_dir_ok(p: Path) -> bool:
+    return p.is_dir() and bool(glob.glob(str(p / "fineweb_train_*.bin")))
+
+
+def _resolve_data_dir() -> str:
+    raw = os.environ.get("DATA_PATH", "").strip()
+    if raw:
+        p = Path(raw).expanduser()
+        if _data_dir_ok(p):
+            return str(p.resolve())
+        print(
+            f"[train_gpt] WARNING: DATA_PATH={raw!r} missing or has no fineweb_train_*.bin; "
+            f"using {_DEFAULT_DATA_DIR}",
+            file=sys.stderr,
+        )
+    if not _data_dir_ok(_DEFAULT_DATA_DIR):
+        return str(_DEFAULT_DATA_DIR.resolve())
+    return str(_DEFAULT_DATA_DIR.resolve())
+
+
+def _resolve_tokenizer_path() -> str:
+    raw = os.environ.get("TOKENIZER_PATH", "").strip()
+    if raw:
+        p = Path(raw).expanduser()
+        if p.is_file():
+            return str(p.resolve())
+        print(
+            f"[train_gpt] WARNING: TOKENIZER_PATH={raw!r} not found; using {_DEFAULT_TOKENIZER}",
+            file=sys.stderr,
+        )
+    return str(_DEFAULT_TOKENIZER.resolve())
+
+
 class Hyperparameters:
-    data_path = os.environ.get("DATA_PATH", "./data/datasets/fineweb10B_sp1024")
+    data_path = _resolve_data_dir()
     train_files = os.path.join(data_path, "fineweb_train_*.bin")
     val_files = os.path.join(data_path, "fineweb_val_*.bin")
-    tokenizer_path = os.environ.get("TOKENIZER_PATH", "./data/tokenizers/fineweb_1024_bpe.model")
+    tokenizer_path = _resolve_tokenizer_path()
     run_id = os.environ.get("RUN_ID", str(uuid.uuid4()))
     seed = _i("SEED", 1337)
 
@@ -78,7 +128,7 @@ class Hyperparameters:
     num_physical = _i("PHYSICAL_LAYERS", 6)
     depth_adapter_rank = _i("DEPTH_ADAPTER_RANK", 8)
     virtual_depth_dropout = _b("VIRTUAL_DEPTH_DROPOUT", "1")
-    vdd_start_keep = _f("VDD_START_KEEP", 0.67)  # unused; we use randint 8–10
+    vdd_start_keep = _f("VDD_START_KEEP", 0.67)
     vdd_end_full_frac = _f("VDD_END_FULL_FRAC", 0.25)
 
     model_dim = _i("MODEL_DIM", 576)
@@ -912,6 +962,29 @@ def main() -> None:
     code_path = Path(__file__).resolve()
     code_bytes = code_path.read_text(encoding="utf-8").encode("utf-8")
     args = Hyperparameters()
+
+    if not Path(args.tokenizer_path).is_file():
+        raise FileNotFoundError(
+            f"Tokenizer not found: {args.tokenizer_path}\n"
+            f"Expected repo root: {_REPO_ROOT}\n"
+            "Run: python3 data/cached_challenge_fineweb.py --variant sp1024 --train-shards 1\n"
+            "Or set REPO_ROOT or TOKENIZER_PATH to a valid fineweb_1024_bpe.model path."
+        )
+    if not _data_dir_ok(Path(args.data_path)):
+        raise FileNotFoundError(
+            f"Train data dir missing or empty: {args.data_path}\n"
+            f"Expected repo root: {_REPO_ROOT}\n"
+            "Run: python3 data/cached_challenge_fineweb.py --variant sp1024 --train-shards 1\n"
+            "Or set REPO_ROOT or DATA_PATH to .../data/datasets/fineweb10B_sp1024 with fineweb_train_*.bin"
+        )
+
+    if int(os.environ.get("RANK", "0")) == 0:
+        print(
+            f"[train_gpt] REPO_ROOT={_REPO_ROOT}\n"
+            f"  DATA_PATH={args.data_path}\n"
+            f"  TOKENIZER_PATH={args.tokenizer_path}",
+            flush=True,
+        )
 
     distributed = "RANK" in os.environ and "WORLD_SIZE" in os.environ
     rank = int(os.environ.get("RANK", "0"))

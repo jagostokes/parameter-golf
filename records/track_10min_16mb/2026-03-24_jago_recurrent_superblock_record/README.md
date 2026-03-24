@@ -32,6 +32,13 @@ Leaderboard gains are increasingly marginal on fixed **independent-layer** backb
 
 Independent 12-layer models pay **12×** for Q/K/V/O and MLP cores. Here, core linear maps are paid **6×**; only **cheap** per-virtual parameters (norms, gates, adapters) scale with 12. At equal artifact size, you can widen the network or spend more bytes on compression metadata and embeddings — the hypothesis is better **BPB per byte** than a flat 12L of the same budget.
 
+## Data paths (important)
+
+`train_gpt.py` resolves the **repository root** by searching upward from this file until it finds a `data/` directory (or use **`REPO_ROOT=/path/to/parameter-golf`**).
+
+- If **`DATA_PATH`** or **`TOKENIZER_PATH`** point to a **missing** location (e.g. `/workspace/parameter-golf/...` while the clone lives at `/parameter-golf`), the script **warns** and falls back to `<repo>/data/...`.
+- You still must run `python3 data/cached_challenge_fineweb.py --variant sp1024 --train-shards …` once so `data/tokenizers/` and `data/datasets/` exist.
+
 ## Exact train command (8×H100 SXM)
 
 From the **repository root** (after FineWeb shards + tokenizer are present under `data/`):
