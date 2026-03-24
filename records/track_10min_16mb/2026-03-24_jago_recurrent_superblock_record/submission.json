@@ -1,0 +1,14 @@
+{
+  "name": "Recurrent superblock + mixed int5/int6 + LZMA (non-TTT)",
+  "val_bpb": null,
+  "val_bpb_notes": "Fill with sliding-window BPB (EVAL_STRIDE) after run; report 3-seed mean ± std for leaderboard.",
+  "bytes_total": null,
+  "bytes_code": null,
+  "bytes_compressed_weights": null,
+  "blurb": "6 physical blocks unrolled to 12 virtual layers with shared Q/K/V/O/MLP; per-virtual RMSNorm, residual gates, rank-8 adapters; LeakyReLU(0.5)^2; XSA; partial RoPE; optional BigramHash; EMA; STE QAT aligned to mixed int5/int6 rowwise export + LZMA. No TTT.",
+  "author": "jago",
+  "github_id": "",
+  "date": "2026-03-24",
+  "hardware": "8xH100 SXM 80GB",
+  "train_wallclock_seconds_target": 600
+}

@@ -1,0 +1,9 @@
+# Record-specific notes (install from repository root)
+#
+# Base: see ../../../requirements.txt in the parameter-golf repo.
+#
+# Optional throughput:
+#   - Hopper FlashAttention 3: flash_attn package providing flash_attn_interface
+#
+# Optional compression:
+#   - zstandard (for USE_ZSTD_FALLBACK=1)
