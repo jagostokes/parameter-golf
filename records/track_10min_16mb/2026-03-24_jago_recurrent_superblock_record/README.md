@@ -41,6 +41,15 @@ Independent 12-layer models pay **12×** for Q/K/V/O and MLP cores. Here, core l
 
 ## Exact train command (8×H100 SXM)
 
+**RunPod / SSH (avoids broken long one-liners):** from repo root, after `git pull`:
+
+```bash
+chmod +x records/track_10min_16mb/2026-03-24_jago_recurrent_superblock_record/run_pod.sh
+./records/track_10min_16mb/2026-03-24_jago_recurrent_superblock_record/run_pod.sh
+```
+
+Single-GPU smoke: `NPROC=1 ./records/.../run_pod.sh`
+
 From the **repository root** (after FineWeb shards + tokenizer are present under `data/`):
 
 ```bash
